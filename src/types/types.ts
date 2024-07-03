@@ -13,3 +13,9 @@ export type ArticleRequestBody = {
   type: string;
   content: string;
 };
+
+export type PayloadRequestUser = {
+  userId: string;
+  fullname: string;
+  isAdmin: boolean;
+};
