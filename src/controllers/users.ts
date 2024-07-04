@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";
 import { ValidationError } from "yup";
-import { type UserRequestBody } from "../types/types";
+import { generateJwt } from "../middlewares/jwt";
+import { type IgetUserAuthInfoRequest, type PayloadRequestUser, type UserRequestBody } from "../types/types";
 import {
   checkExistingUserByEmail,
   checkUserExistsById,
@@ -19,21 +20,32 @@ import {
 } from "../utils/users";
 
 // Contrôleur pour la route
-export const getAllUsers = async (req: Request, res: Response) => {
+export const getAllUsers = async (req: IgetUserAuthInfoRequest, res: Response) => {
   try {
+    if (!req?.user?.isAdmin) {
+      return res.status(409).json({ message: "Vous n'êtes pas autorisé à effectuer cette action" });
+    }
+
     const users = await getAllUsersService();
     return res.status(200).json(users);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erreur lors de la récupération de l'utilisateur";
+    const errorMessage = error instanceof Error ? error.message : "Erreur lors de la récupération des utilisateurs";
     return handleError(res, error, errorMessage);
   }
 };
 
 // Contrôleur pour la route
-export const getOneUser = async (req: Request, res: Response) => {
+export const getOneUser = async (req: IgetUserAuthInfoRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const user = await getOneUserService(id);
+    const reqUser = req?.user;
+
+    if (reqUser?.isAdmin) {
+      const user = await getOneUserService(id);
+      return res.status(200).json(user);
+    }
+
+    const user = await getOneUserService(reqUser?.userId as string);
     return res.status(200).json(user);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur lors de la récupération de l'utilisateur";
@@ -76,7 +88,15 @@ export const postConnectedUsers = async (
       throw new Error("L'email ou le mot de passe n'est pas correct");
     }
 
-    return res.status(201).json({ message: "L'utilisateur a été authentifié avec succès" });
+    const payload: PayloadRequestUser = { userId: user._id, fullname: user.fullname, isAdmin: user.isAdmin };
+    const token = generateJwt(payload);
+
+    // Création d'une copie de l'utilisateur sans le champ `password`
+    const userWithoutPassword = { ...user.toObject(), password: null };
+
+    return res
+      .status(201)
+      .json({ message: "L'utilisateur a été authentifié avec succès", token, user: userWithoutPassword });
   } catch (error) {
     if (error instanceof ValidationError) {
       return handleValidationErrors(error, res);

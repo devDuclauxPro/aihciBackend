@@ -30,7 +30,7 @@ export default [
       "@/eqeqeq": "error",
       "prettier/prettier": "error"
     },
-    ignorePatterns: ["eslint.config.mjs", "tsconfig.json", "dist"]
+    ignorePatterns: ["eslint.config.mjs", "tsconfig.json", "dist", "src/types/**/*.d.ts"]
   }),
   ...tseslint.configs.recommended
 ];

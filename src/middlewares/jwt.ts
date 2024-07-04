@@ -1,41 +1,67 @@
-import { configDotenv } from "dotenv";
+import { config as configDotenv } from "dotenv";
+import { type NextFunction, type Response } from "express";
+import { type IncomingHttpHeaders } from "http";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
-import { type PayloadRequestUser } from "../types/types";
+import { type IgetUserAuthInfoRequest, type PayloadRequestUser } from "../types/types";
+import { handleError } from "../utils/users";
 
 // Charger les variables d'environnement depuis un fichier .env
 configDotenv({ path: "./src/config/.env" });
 
 // Valider que `secretKey` est définie
-const secretKey: string | undefined = process.env.SECRET_KEY;
+const secretKey = process.env.SECRET_KEY;
 
 if (!secretKey) {
-  throw new Error("SECRET_KEY n'est pas défini dans les variables d'environnement.");
+  throw new Error("SECRET_KEY n'est pas définie dans les variables d'environnement.");
 }
 
 // Fonction de génération de token
 export const generateJwt = (user: PayloadRequestUser): string => {
-  const payload = {
+  const payload: JwtPayload = {
     userId: user.userId,
     username: user.fullname,
-    role: user.isAdmin
+    isAdmin: user.isAdmin
   };
   const options: SignOptions = {
     expiresIn: "1h"
   };
-  const token: string = jwt.sign(payload, secretKey, options);
-  return token;
+  const token: string = jwt.sign(payload, secretKey, options); // Utilisation de `!` pour indiquer que secretKey n'est pas null/undefined
+  return `Bearer ${token}`;
 };
 
-// Fonction de vérification du token
-export const verifyJwt = (token: string): string | JwtPayload | undefined => {
-  try {
-    const decoded: string | JwtPayload = jwt.verify(token, secretKey);
-    return decoded;
-  } catch (err) {
-    if (err instanceof Error) {
-      console.error("Échec de la vérification JWT :", err.message);
-    }
+// Fonction de vérification du token avec gestion des erreurs
+const verifyToken = (token: string | undefined): JwtPayload => {
+  if (!token) {
+    throw new Error("Token manquant");
+  }
 
-    return undefined;
+  try {
+    const decoded = jwt.verify(token, secretKey) as JwtPayload;
+    return decoded;
+  } catch (error) {
+    throw new Error("Token invalide");
+  }
+};
+
+// Fonction pour obtenir le token des en-têtes
+const getTokenFromHeaders = (headers: IncomingHttpHeaders): string | undefined => {
+  const authorizationHeader = headers.authorization;
+  if (!authorizationHeader) return undefined;
+
+  const token = authorizationHeader.split(" ")[1];
+  return token || undefined;
+};
+
+// Fonction pour authentifier les routes
+export const authentification = (req: IgetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+  try {
+    const token = getTokenFromHeaders(req.headers);
+    const user = verifyToken(token);
+    // Ajouter les informations de l'utilisateur à l'objet de requête pour une utilisation ultérieure
+    req.user = user;
+    next();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Erreur lors de la récupération de l'utilisateur";
+    return handleError(res, error, errorMessage);
   }
 };
