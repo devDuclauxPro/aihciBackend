@@ -16,6 +16,7 @@ export type ArticleRequestBody = {
   title: string;
   type: string;
   content: string;
+  author: string;
 };
 
 export type PayloadRequestUser = {

@@ -1,50 +1,31 @@
 import { compare, genSalt, hash } from "bcryptjs";
-import { type Response } from "express";
 import mongoose from "mongoose";
-import { type ValidationError } from "yup";
 import {
   userEmailPasswordValidateSchema,
   userValidatePartialSchema,
   userValidateSchema
-} from "../middlewares/validate";
+} from "../middlewares/validateUser";
 import { userModel } from "../models/users.model";
 import { type UserRequestBody } from "../types/types";
 
-// Gestionnaire d'erreurs centralisé
-export const handleError = (res: Response, error: unknown, message = "Erreur serveur interne") => {
-  console.error(error instanceof Error ? error : "Erreur inconnue", error);
-  return res.status(500).json({ error: message });
-};
-
 // Service pour obtenir tous les utilisateurs
 export const getAllUsersService = async (): Promise<UserRequestBody[]> => {
-  return userModel.find();
+  return userModel.find().sort({ createdAt: -1 });
 };
 
 // Service pour obtenir un utilisateur par ID
-export const getOneUserService = async (id: string): Promise<UserRequestBody> => {
+export const getUserById = async (id: string | mongoose.Types.ObjectId): Promise<UserRequestBody> => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new Error(`L'utilisateur avec cet id ${id} n'existe pas`);
+    throw new Error(`L'utilisateur avec cet id ${id as string} n'existe pas`);
   }
 
   const user = await userModel.findById(id);
 
   if (!user) {
-    // return undefined; // Retourne undefined si aucun utilisateur n'est trouvé
-    throw new Error(`L'utilisateur avec cet id ${id} n'existe pas`);
+    throw new Error("Utilisateur introuvable");
   }
 
   return user;
-};
-
-// Service pour valider les données utilisateur
-export const validateUserData = async (data: UserRequestBody) => {
-  await userValidateSchema.validate(data, { abortEarly: false });
-};
-
-// Service pour valider partiellement les données utilisateur
-export const validateUserPartialData = async (data: Partial<UserRequestBody>) => {
-  await userValidatePartialSchema.validate(data, { abortEarly: false });
 };
 
 // Service pour vérifier si un utilisateur existe déjà par email
@@ -59,20 +40,6 @@ export const checkExistingUserByEmail = async (email: string) => {
 export const hashPassword = async (password: string): Promise<string> => {
   const salt = await genSalt(10);
   return hash(password, salt);
-};
-
-// Service pour vérifier si un utilisateur existe déjà par ID
-export const checkUserExistsById = async (id: string) => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new Error(`L'utilisateur avec cet id ${id} n'existe pas`);
-  }
-
-  const user = await userModel.findById(id);
-  if (!user) {
-    throw new Error(`L'utilisateur avec cet id ${id} n'existe pas`);
-  }
-
-  return user;
 };
 
 // Service pour créer un nouvel utilisateur
@@ -106,11 +73,6 @@ export const deleteUser = async (id: string) => {
   await userModel.findByIdAndDelete(id);
 };
 
-// Fonction pour valider les données utilisateur entrantes
-export const validateUserInput = async (data: Partial<UserRequestBody>) => {
-  await userEmailPasswordValidateSchema.validate(data, { abortEarly: false });
-};
-
 // Fonction pour trouver un utilisateur par email
 export const findUserByEmail = async (email: string) => {
   return userModel.findOne({ email });
@@ -121,11 +83,17 @@ export const checkUserPassword = async (inputPassword: string, storedPassword: s
   return compare(inputPassword, storedPassword);
 };
 
-// Fonction pour gérer les erreurs de validation
-export const handleValidationErrors = (error: ValidationError, res: Response) => {
-  const validationErrors = error.inner.map((err) => ({
-    path: err.path,
-    message: err.message
-  }));
-  return res.status(400).json({ errors: validationErrors });
+// Service pour valider les données utilisateur
+export const validateUserData = async (data: UserRequestBody) => {
+  await userValidateSchema.validate(data, { abortEarly: false });
+};
+
+// Service pour valider partiellement les données utilisateur
+export const validateUserPartialData = async (data: Partial<UserRequestBody>) => {
+  await userValidatePartialSchema.validate(data, { abortEarly: false });
+};
+
+// Fonction pour valider les données utilisateur entrantes
+export const validateUserInput = async (data: Partial<UserRequestBody>) => {
+  await userEmailPasswordValidateSchema.validate(data, { abortEarly: false });
 };

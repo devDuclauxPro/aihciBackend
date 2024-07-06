@@ -1,6 +1,7 @@
 import { configDotenv } from "dotenv";
 import express, { type Express } from "express";
 import { connectToDatabase } from "./db/connect";
+import { routeAricleApi } from "./routes/articles.routes";
 import { routeUserApi } from "./routes/users.routes";
 
 // Configuration de dotenv
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes API
 app.use("/api", routeUserApi);
+app.use("/api", routeAricleApi);
 
 // Démarrage du serveur
 app.listen(port, () => {

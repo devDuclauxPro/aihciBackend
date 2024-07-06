@@ -3,7 +3,7 @@ import { type NextFunction, type Response } from "express";
 import { type IncomingHttpHeaders } from "http";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import { type IgetUserAuthInfoRequest, type PayloadRequestUser } from "../types/types";
-import { handleError } from "../utils/users";
+import { handleError } from "../utils/errors";
 
 // Charger les variables d'environnement depuis un fichier .env
 configDotenv({ path: "./src/config/.env" });
@@ -25,7 +25,7 @@ export const generateJwt = (user: PayloadRequestUser): string => {
   const options: SignOptions = {
     expiresIn: "1h"
   };
-  const token: string = jwt.sign(payload, secretKey, options); // Utilisation de `!` pour indiquer que secretKey n'est pas null/undefined
+  const token: string = jwt.sign(payload, secretKey, options);
   return `Bearer ${token}`;
 };
 
@@ -38,7 +38,7 @@ const verifyToken = (token: string | undefined): JwtPayload => {
   try {
     const decoded = jwt.verify(token, secretKey) as JwtPayload;
     return decoded;
-  } catch (error) {
+  } catch (error: unknown) {
     throw new Error("Token invalide");
   }
 };
@@ -57,10 +57,9 @@ export const authentification = (req: IgetUserAuthInfoRequest, res: Response, ne
   try {
     const token = getTokenFromHeaders(req.headers);
     const user = verifyToken(token);
-    // Ajouter les informations de l'utilisateur à l'objet de requête pour une utilisation ultérieure
     req.user = user;
     next();
-  } catch (error) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Erreur lors de la récupération de l'utilisateur";
     return handleError(res, error, errorMessage);
   }
